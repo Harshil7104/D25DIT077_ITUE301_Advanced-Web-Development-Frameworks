@@ -1,10 +1,10 @@
 import Navbar from "./Navbar";
 
-function Header({ name, themeColor }) {
+function Header({ name, themeColor, theme, toggleTheme }) {
   return (
     <header className="header" id="home">
 
-      <Navbar themeColor={themeColor} />
+      <Navbar themeColor={themeColor} theme={theme} toggleTheme={toggleTheme} />
 
       <div className="hero">
 

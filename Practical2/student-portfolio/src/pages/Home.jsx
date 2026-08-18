@@ -3,7 +3,7 @@ import About from "../components/About";
 import Skills from "../components/Skills";
 import Footer from "../components/Footer";
 
-function Home() {
+function Home({ theme, toggleTheme }) {
 
     const skills = [
         "HTML",
@@ -19,6 +19,8 @@ function Home() {
             <Header
                 name="Harshil Patel"
                 themeColor="#38bdf8"
+                theme={theme}
+                toggleTheme={toggleTheme}
             />
 
             <About />

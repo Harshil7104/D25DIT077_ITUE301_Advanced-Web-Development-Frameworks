@@ -1,8 +1,6 @@
-import { useState } from "react";
-
 import { Link } from "react-router-dom";
 
-function Navbar({ themeColor }) {
+function Navbar({ theme, toggleTheme, themeColor }) {
 
     return (
 
@@ -36,6 +34,10 @@ function Navbar({ themeColor }) {
                 </li>
 
             </ul>
+
+            <button className="theme-toggle-btn" onClick={toggleTheme} aria-label="Toggle Theme">
+                {theme === "light" ? "🌙" : "☀️"} Mode
+            </button>
 
         </nav>
 
