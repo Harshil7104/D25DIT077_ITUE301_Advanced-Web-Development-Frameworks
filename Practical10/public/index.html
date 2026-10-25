@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Practical 10: Background Notification System using Node.js built-in EventEmitter. Demonstrates asynchronous non-blocking event handling, timestamp logging, task-created and task-deleted events, and error listener.">
+  <meta name="author" content="Harshil (D25DIT077)">
+  <title>TaskFlow Event Engine • Practical 10 - Node.js EventEmitter Notification System</title>
+  
+  <!-- Modern Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Ambient Lighting Effects -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+  <div class="ambient-glow glow-3"></div>
+
+  <!-- Main Container -->
+  <div class="app-container">
+
+    <!-- Top Navigation Bar -->
+    <header class="top-nav glass-panel">
+      <div class="nav-left">
+        <div class="logo-badge">
+          <span class="logo-icon">⚡</span>
+          <div class="logo-text">
+            <span class="logo-title">TaskFlow Event Engine</span>
+            <span class="logo-subtitle">Practical 10 • Node.js Built-in EventEmitter System</span>
+          </div>
+        </div>
+        <span class="student-badge">ID: D25DIT077</span>
+      </div>
+
+      <div class="nav-right">
+        <div class="health-pill" id="healthPill">
+          <span class="status-dot pulsing" id="healthDot"></span>
+          <span id="healthStatusText">Connecting...</span>
+        </div>
+        <a href="/postman_collection.json" download="Practical10_Postman_Collection.json" class="btn btn-outline btn-sm" id="downloadPostmanBtn">
+          <span>📥 Postman Collection</span>
+        </a>
+        <button class="btn btn-primary btn-sm" id="btnHeaderBenchmark">
+          <span>⚡ Run Benchmark</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Hero Header & Academic Objective Banner -->
+    <section class="hero-section glass-panel">
+      <div class="hero-content">
+        <div class="hero-badge">
+          <span class="badge-dot"></span>
+          <span>ITUE301 • Advanced Web Development Frameworks</span>
+        </div>
+        <h1 class="hero-title">
+          Background Notification System with 
+          <span class="gradient-text">Node.js EventEmitter</span>
+        </h1>
+        <p class="hero-desc">
+          Decouple API responses from time-consuming side effects. When tasks are created or deleted, background notifications are handled asynchronously via Node's event loop, returning instant HTTP responses before slow handlers complete.
+        </p>
+      </div>
+
+      <!-- Live Telemetry KPI Cards -->
+      <div class="telemetry-grid">
+        <div class="kpi-card glass-card">
+          <div class="kpi-header">
+            <span class="kpi-label">API Response Time</span>
+            <span class="kpi-icon">⚡</span>
+          </div>
+          <div class="kpi-value highlight-emerald" id="statApiResponseTime">~8 ms</div>
+          <div class="kpi-subtext">Instantaneous non-blocking response</div>
+        </div>
+
+        <div class="kpi-card glass-card">
+          <div class="kpi-header">
+            <span class="kpi-label">Slow Handler Delay</span>
+            <span class="kpi-icon">⏳</span>
+          </div>
+          <div class="kpi-value highlight-amber" id="statConfiguredDelay">2,000 ms</div>
+          <div class="kpi-subtext" id="statDelayDesc">Simulated email / push dispatch</div>
+        </div>
+
+        <div class="kpi-card glass-card">
+          <div class="kpi-header">
+            <span class="kpi-label">Background Events</span>
+            <span class="kpi-icon">🔔</span>
+          </div>
+          <div class="kpi-value" id="statTotalEvents">0</div>
+          <div class="kpi-subtext">Audited in memory buffer</div>
+        </div>
+
+        <div class="kpi-card glass-card">
+          <div class="kpi-header">
+            <span class="kpi-label">Error Listener</span>
+            <span class="kpi-icon">🛡️</span>
+          </div>
+          <div class="kpi-value highlight-indigo" id="statShieldStatus">Active</div>
+          <div class="kpi-subtext">Catches errors without process crash</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Workspace Grid -->
+    <main class="workspace-grid">
+
+      <!-- Column 1: Controls & Task Dispatcher -->
+      <section class="controls-column">
+        
+        <!-- Task Creation Card -->
+        <div class="glass-card panel-card">
+          <div class="card-header">
+            <div class="header-title-group">
+              <span class="header-icon">📝</span>
+              <div>
+                <h2 class="card-title">Task Creator & Event Dispatcher</h2>
+                <p class="card-subtitle">POST /api/tasks emits 'task-created' event</p>
+              </div>
+            </div>
+            <span class="badge badge-accent">Non-Blocking</span>
+          </div>
+
+          <form id="createTaskForm" class="task-form">
+            <div class="form-group">
+              <label for="taskTitle" class="form-label">Task Title <span class="required">*</span></label>
+              <input type="text" id="taskTitle" class="form-input" placeholder="e.g., Deploy microservices to Kubernetes" required>
+            </div>
+
+            <div class="form-group">
+              <label for="taskAssignedUser" class="form-label">Assigned User <span class="required">*</span></label>
+              <input type="text" id="taskAssignedUser" class="form-input" value="Harshil (D25DIT077)" required>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label for="taskPriority" class="form-label">Priority</label>
+                <select id="taskPriority" class="form-select">
+                  <option value="high">High Priority 🔴</option>
+                  <option value="medium" selected>Medium Priority 🟡</option>
+                  <option value="low">Low Priority 🟢</option>
+                </select>
+              </div>
+
+              <div class="form-group flex-1">
+                <label for="executionMode" class="form-label">Execution Mode</label>
+                <select id="executionMode" class="form-select">
+                  <option value="async" selected>⚡ Asynchronous (Non-blocking)</option>
+                  <option value="sync">⏳ Synchronous (Blocks API)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="taskDescription" class="form-label">Description (Optional)</label>
+              <textarea id="taskDescription" class="form-textarea" rows="2" placeholder="Task details, notification recipient, or side-effect specifications..."></textarea>
+            </div>
+
+            <!-- Quick Template Buttons -->
+            <div class="presets-row">
+              <span class="preset-label">Quick Presets:</span>
+              <button type="button" class="btn-preset" data-preset="1">⚡ Cloud Deployment</button>
+              <button type="button" class="btn-preset" data-preset="2">🛡️ Security Audit</button>
+              <button type="button" class="btn-preset" data-preset="3">📦 Database Migration</button>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary btn-block" id="btnSubmitTask">
+                <span>🚀 Dispatch Task & Emit Event</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Simulation & Supplementary Problem Deck -->
+        <div class="glass-card panel-card">
+          <div class="card-header">
+            <div class="header-title-group">
+              <span class="header-icon">⚙️</span>
+              <div>
+                <h3 class="card-title">Simulator & Supplementary Controls</h3>
+                <p class="card-subtitle">Delay tuning, error injection & benchmark</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Slow Handler Delay Config (Supplementary 3) -->
+          <div class="control-box">
+            <div class="control-box-header">
+              <label class="control-box-label" for="delaySlider">
+                Simulated Notification Delay: <strong id="currentDelayLabel" class="highlight-amber">2000 ms</strong>
+              </label>
+              <span class="badge badge-subtle">Supplementary 3</span>
+            </div>
+            <div class="slider-container">
+              <input type="range" id="delaySlider" min="0" max="5000" step="500" value="2000" class="custom-range">
+              <div class="range-marks">
+                <span data-val="0">0ms (Instant)</span>
+                <span data-val="1000">1s</span>
+                <span data-val="2000">2s (Req)</span>
+                <span data-val="3000">3s</span>
+                <span data-val="5000">5s</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons Grid -->
+          <div class="actions-grid">
+            <!-- Supplementary 2: Error Listener Trigger -->
+            <button class="btn btn-danger-soft" id="btnTriggerError" title="Emits task with error to verify error event listener">
+              <span class="btn-icon">🚨</span>
+              <div class="btn-label-group">
+                <span class="btn-title">Simulate Handler Error</span>
+                <span class="btn-desc">Verify 'error' listener (Supp. 2)</span>
+              </div>
+            </button>
+
+            <!-- Sync vs Async Benchmark Runner -->
+            <button class="btn btn-accent-soft" id="btnRunBenchmark" title="Runs timing comparison test">
+              <span class="btn-icon">📊</span>
+              <div class="btn-label-group">
+                <span class="btn-title">Sync vs Async Benchmark</span>
+                <span class="btn-desc">Compare thread blocking</span>
+              </div>
+            </button>
+          </div>
+
+          <div class="card-footer-actions">
+            <button class="btn btn-ghost btn-sm" id="btnClearLogs">
+              <span>🧹 Clear Audit Telemetry</span>
+            </button>
+            <button class="btn btn-ghost btn-sm" id="btnRefreshData">
+              <span>🔄 Refresh Data</span>
+            </button>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Column 2: Live Timing Inspector & Real-time Notification Stream -->
+      <section class="stream-column">
+
+        <!-- Synchronous vs Asynchronous Timing Comparator Card -->
+        <div class="glass-card panel-card" id="timingInspectorCard">
+          <div class="card-header">
+            <div class="header-title-group">
+              <span class="header-icon">⏱️</span>
+              <div>
+                <h3 class="card-title">Live Timestamp & Execution Inspector</h3>
+                <p class="card-subtitle">Proof of immediate API return before background completion</p>
+              </div>
+            </div>
+            <span class="badge badge-emerald" id="lastDispatchModeBadge">Async Active</span>
+          </div>
+
+          <!-- Interactive Timing Nodes Visualization -->
+          <div class="timeline-visualizer" id="timelineVisualizer">
+            <div class="timeline-node node-request">
+              <div class="node-icon">📥</div>
+              <div class="node-content">
+                <div class="node-title">API Request Received</div>
+                <div class="node-time mono" id="nodeTimeReq">--:--:--.---</div>
+                <div class="node-tag">T0 • Main Thread</div>
+              </div>
+            </div>
+
+            <div class="timeline-connector connector-active">
+              <span class="connector-arrow">➔</span>
+              <span class="connector-label" id="connectorElapsedApi">+8 ms</span>
+            </div>
+
+            <div class="timeline-node node-response">
+              <div class="node-icon">⚡</div>
+              <div class="node-content">
+                <div class="node-title">API Responded (HTTP 201)</div>
+                <div class="node-time mono highlight-emerald" id="nodeTimeRes">--:--:--.---</div>
+                <div class="node-tag">T1 • Client Unblocked!</div>
+              </div>
+            </div>
+
+            <div class="timeline-connector connector-delayed">
+              <span class="connector-arrow">┄➔</span>
+              <span class="connector-label highlight-amber" id="connectorElapsedBackground">+2,000 ms background delay</span>
+            </div>
+
+            <div class="timeline-node node-handler">
+              <div class="node-icon">🔔</div>
+              <div class="node-content">
+                <div class="node-title">EventEmitter Handler Executed</div>
+                <div class="node-time mono highlight-indigo" id="nodeTimeHandler">--:--:--.---</div>
+                <div class="node-tag">T2 • Event Loop Timer Phase</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Proof Statement Callout -->
+          <div class="proof-banner" id="proofBanner">
+            <span class="proof-icon">✅</span>
+            <div class="proof-text">
+              <strong>Non-Blocking Proof:</strong> The client received HTTP 201 response in <span class="mono" id="proofApiMs">8ms</span>. The notification handler executed independently in the background <span class="mono" id="proofDeltaMs">+2004ms</span> later!
+            </div>
+          </div>
+        </div>
+
+        <!-- Real-time Notification Feed / Audit Stream -->
+        <div class="glass-card panel-card flex-1">
+          <div class="card-header">
+            <div class="header-title-group">
+              <span class="header-icon">📡</span>
+              <div>
+                <h3 class="card-title">Real-Time Event Audit Stream</h3>
+                <p class="card-subtitle">Logged notifications emitted by Node.js EventEmitter</p>
+              </div>
+            </div>
+            <div class="filter-pills">
+              <button class="filter-pill active" data-filter="all">All (<span id="countFilterAll">0</span>)</button>
+              <button class="filter-pill" data-filter="task-created">task-created (<span id="countFilterCreated">0</span>)</button>
+              <button class="filter-pill" data-filter="task-deleted">task-deleted (<span id="countFilterDeleted">0</span>)</button>
+              <button class="filter-pill" data-filter="error">error (<span id="countFilterError">0</span>)</button>
+            </div>
+          </div>
+
+          <!-- Stream Content Container -->
+          <div class="events-stream-list" id="eventsStreamList">
+            <div class="empty-state" id="emptyStatePlaceholder">
+              <span class="empty-icon">⏳</span>
+              <p class="empty-title">Waiting for Background Events</p>
+              <p class="empty-subtitle">Create a task or delete an existing one to observe non-blocking EventEmitter events in real time.</p>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Column 3: Active Tasks List (With Delete triggers) -->
+      <section class="tasks-column">
+        <div class="glass-card panel-card">
+          <div class="card-header">
+            <div class="header-title-group">
+              <span class="header-icon">📋</span>
+              <div>
+                <h3 class="card-title">Task Management Inventory</h3>
+                <p class="card-subtitle">Delete to trigger 'task-deleted' (Supp. 1)</p>
+              </div>
+            </div>
+            <span class="badge badge-subtle" id="tasksCountBadge">0 Tasks</span>
+          </div>
+
+          <div class="tasks-list-container" id="tasksListContainer">
+            <div class="loading-spinner-box" id="tasksLoadingBox">
+              <div class="spinner"></div>
+              <span>Fetching tasks...</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Modal: Sync vs Async In-Engine Benchmark Results -->
+    <div class="modal-backdrop" id="benchmarkModal" style="display: none;">
+      <div class="modal-dialog glass-panel">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <span class="modal-icon">⚡</span>
+            <div>
+              <h3 class="modal-title">Synchronous vs Asynchronous Handling Benchmark</h3>
+              <p class="modal-subtitle">Direct comparison of Node.js event loop blocking behavior</p>
+            </div>
+          </div>
+          <button class="btn-close" id="btnCloseModal">&times;</button>
+        </div>
+
+        <div class="modal-body" id="benchmarkModalBody">
+          <div class="benchmark-loading">
+            <div class="spinner"></div>
+            <p>Executing live benchmark against Node.js runtime...</p>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-outline" id="btnCloseModalBtn">Close Benchmark</button>
+          <button class="btn btn-primary" id="btnRerunBenchmark">Re-run Benchmark</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="app-footer glass-panel">
+      <div class="footer-left">
+        <span>© 2026 <strong>TaskFlow Event Engine</strong> • Advanced Web Development Frameworks (ITUE301)</span>
+      </div>
+      <div class="footer-center">
+        <span>Designed & Developed by <strong>Harshil (D25DIT077)</strong></span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-tech">Node.js 24 • EventEmitter • Express • MongoDB</span>
+      </div>
+    </footer>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

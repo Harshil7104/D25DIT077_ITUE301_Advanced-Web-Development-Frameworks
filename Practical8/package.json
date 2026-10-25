@@ -1,0 +1,27 @@
+{
+  "name": "practical8-code-splitting-lazy-loading",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Practical 8: Code Splitting and Performance Optimization in React - D25DIT077 ITUE301",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:unoptimized": "vite build --config vite.config.unoptimized.js",
+    "preview": "vite preview",
+    "test": "node tests/verify-performance.js"
+  },
+  "author": "D25DIT077",
+  "license": "ISC",
+  "dependencies": {
+    "chart.js": "^4.6.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.6"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "rollup-plugin-visualizer": "^5.14.0",
+    "vite": "^5.4.21"
+  }
+}

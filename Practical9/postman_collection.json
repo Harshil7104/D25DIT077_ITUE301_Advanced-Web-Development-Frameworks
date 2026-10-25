@@ -1,0 +1,425 @@
+{
+  "info": {
+    "_postman_id": "a9e5b8d2-f47c-4819-bf93-9c8e1467df21",
+    "name": "Practical 9: In-Memory Caching (node-cache) - D25DIT077",
+    "description": "Comprehensive Postman / Thunder Client Collection for Practical 9 (ITUE301 Advanced Web Development Frameworks).\n\nFeatures tested:\n- GET /tasks in-memory caching with 60s TTL\n- GET /tasks/:id independent single-task caching\n- Invalidation on write operations (POST, PUT, DELETE)\n- Cache-Hit & Cache-Miss counters (/api/cache/stats)\n- Dynamic TTL configuration & experimentation (/api/cache/ttl)\n- Uncached vs Cached API response time benchmarking",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "sampleTaskId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. All Tasks Caching",
+      "item": [
+        {
+          "name": "1.1 GET /tasks (Uncached / Cache Miss)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-No-Cache",
+                "value": "true",
+                "description": "Optional: Forces uncached direct MongoDB query for benchmark comparison"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks?cache=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks"],
+              "query": [
+                {
+                  "key": "cache",
+                  "value": "false",
+                  "description": "Bypasses in-memory cache to measure raw database response time"
+                }
+              ]
+            },
+            "description": "Fetches all tasks bypassing memory cache. Measures uncached MongoDB latency."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Cache status is MISS or BYPASS', function () {",
+                  "    const header = pm.response.headers.get('X-Cache');",
+                  "    pm.expect(['MISS', 'BYPASS']).to.include(header);",
+                  "});",
+                  "pm.test('Response time is recorded', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.above(0);",
+                  "    console.log('Uncached Response Time: ' + pm.response.responseTime + 'ms');",
+                  "});",
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.length > 0) {",
+                  "    pm.collectionVariables.set('sampleTaskId', json.data[0]._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.2 GET /tasks (Cached / Cache HIT with 60s TTL)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks"]
+            },
+            "description": "Fetches all tasks served directly from node-cache in-memory cache. Response header X-Cache should be HIT."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Header X-Cache is HIT', function () {",
+                  "    pm.expect(pm.response.headers.get('X-Cache')).to.eql('HIT');",
+                  "});",
+                  "pm.test('Response body indicates cached = true', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.cached).to.be.true;",
+                  "    pm.expect(json.cacheStatus).to.eql('HIT');",
+                  "    pm.expect(json.ttlRemainingSeconds).to.be.at.most(60);",
+                  "});",
+                  "pm.test('Cached response is high-speed (< 15ms)', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(50);",
+                  "    console.log('Cached Response Time: ' + pm.response.responseTime + 'ms');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Single Task Caching (Supplementary 1)",
+      "item": [
+        {
+          "name": "2.1 GET /tasks/:id (Single Task - Uncached / Miss)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{sampleTaskId}}?cache=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{sampleTaskId}}"],
+              "query": [
+                {
+                  "key": "cache",
+                  "value": "false"
+                }
+              ]
+            },
+            "description": "Fetches single task by ID bypassing cache. Verifies single-task isolation."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.2 GET /tasks/:id (Single Task - Cached / HIT)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{sampleTaskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{sampleTaskId}}"]
+            },
+            "description": "Fetches single task from cache. Header X-Cache is HIT; key is task:<id>."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Header X-Cache is HIT', function () {",
+                  "    pm.expect(pm.response.headers.get('X-Cache')).to.eql('HIT');",
+                  "});",
+                  "pm.test('Cache key matches task:<id>', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.cacheKey).to.eql('task:' + pm.collectionVariables.get('sampleTaskId'));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Cache Invalidation on Writes",
+      "item": [
+        {
+          "name": "3.1 POST /tasks (Create Task & Invalidate Cache)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman Invalidation Verification Task\",\n  \"description\": \"Verify cache invalidation on write operation\",\n  \"priority\": \"high\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks"]
+            },
+            "description": "Creates task. Clears all-tasks cache so stale data is never served."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Cache was invalidated on write', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.cacheInvalidated).to.be.true;",
+                  "    pm.collectionVariables.set('sampleTaskId', json.data._id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.2 GET /tasks (Verify Cache MISS After Write)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks"]
+            },
+            "description": "Verifies that after POST, the cache returns fresh data (MISS) containing newly created task."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Header X-Cache is MISS after invalidation', function () {",
+                  "    pm.expect(pm.response.headers.get('X-Cache')).to.eql('MISS');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.3 PUT /tasks/:id (Update Task & Invalidate)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Task Title - Verified\",\n  \"completed\": true,\n  \"priority\": \"medium\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{sampleTaskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{sampleTaskId}}"]
+            },
+            "description": "Updates task. Invalidates both single-task and all-tasks cache entries."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Cache invalidated confirmed', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.cacheInvalidated).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.4 DELETE /tasks/:id (Delete Task & Invalidate)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{sampleTaskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{sampleTaskId}}"]
+            },
+            "description": "Deletes task. Invalidates both single-task cache and all-tasks cache."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Debug & Monitoring (Supplementary 2 & 3)",
+      "item": [
+        {
+          "name": "4.1 GET /api/cache/stats (Hit/Miss Counters)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/cache/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cache", "stats"]
+            },
+            "description": "Supplementary Problem 2: Debug endpoint exposing hit/miss counters, hit ratio %, and active keys."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Stats structure is valid', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.summary).to.have.property('hits');",
+                  "    pm.expect(json.summary).to.have.property('misses');",
+                  "    pm.expect(json.summary).to.have.property('hitRatio');",
+                  "    pm.expect(json.summary).to.have.property('currentTTL');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.2 GET /api/cache/keys (Inspect Active Keys)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/cache/keys",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cache", "keys"]
+            },
+            "description": "Lists all currently cached keys, their categories, and countdown to expiration."
+          }
+        },
+        {
+          "name": "4.3 POST /api/cache/ttl (Dynamic TTL Experiment)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ttl\": 30\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cache/ttl",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cache", "ttl"]
+            },
+            "description": "Supplementary Problem 3: Updates default TTL dynamically (e.g., 5s, 30s, 60s, 300s)."
+          }
+        },
+        {
+          "name": "4.4 POST /api/cache/flush (Flush All Cache)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/cache/flush",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cache", "flush"]
+            },
+            "description": "Manually flushes all in-memory cache data."
+          }
+        },
+        {
+          "name": "4.5 GET /api/health (System Health)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Health check returning database status, cache status, and feature checklist."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,237 @@
+{
+  "info": {
+    "name": "Practical 5 - MongoDB & Mongoose Task API",
+    "_postman_id": "d25dit077-practical5-task-management",
+    "description": "Postman Collection for Practical 5: MongoDB Integration and Schema Design with Mongoose. Includes all CRUD operations, schema validation edge cases, and supplementary problems.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "taskId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Core CRUD Operations",
+      "item": [
+        {
+          "name": "Server & DB Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Verifies server uptime and MongoDB connection readyState."
+          }
+        },
+        {
+          "name": "Create Task (POST /tasks)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.data && json.data._id) {",
+                  "        pm.collectionVariables.set('taskId', json.data._id);",
+                  "        console.log('Saved taskId:', json.data._id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Complete Practical 5 Assignment\",\n  \"description\": \"Integrate MongoDB using Mongoose, configure schema validation, and test in Postman\",\n  \"completed\": false,\n  \"priority\": \"high\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks"]
+            },
+            "description": "Creates a new task in MongoDB. Saves the generated _id to the collection variable {{taskId}}."
+          }
+        },
+        {
+          "name": "Get All Tasks (GET /tasks)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks"]
+            },
+            "description": "Fetches all task documents from the MongoDB collection."
+          }
+        },
+        {
+          "name": "Get Task By ID (GET /tasks/:id)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}"]
+            },
+            "description": "Fetches a single task by its MongoDB _id."
+          }
+        },
+        {
+          "name": "Update Task By ID (PUT /tasks/:id)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Complete Practical 5 Assignment (Updated)\",\n  \"description\": \"All CRUD endpoints verified and tested with Mongoose\",\n  \"completed\": true,\n  \"priority\": \"medium\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}"]
+            },
+            "description": "Updates an existing task in MongoDB."
+          }
+        },
+        {
+          "name": "Delete Task By ID (DELETE /tasks/:id)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}"]
+            },
+            "description": "Deletes a task from MongoDB by its _id."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Schema Validation & Supplementary Tests",
+      "item": [
+        {
+          "name": "Validation Error - Missing Title (Expects 400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Testing required field validation without title\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks"]
+            },
+            "description": "Tests Mongoose schema validation when the required 'title' field is omitted. Returns HTTP 400 with structured JSON."
+          }
+        },
+        {
+          "name": "Supplementary 1 - Invalid Priority Enum (Expects 400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Fix database cluster\",\n  \"priority\": \"urgent\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks"]
+            },
+            "description": "Tests Supplementary Problem 1: Enum validation on priority. Only 'low', 'medium', 'high' are allowed. 'urgent' triggers HTTP 400."
+          }
+        },
+        {
+          "name": "Supplementary 2 - Pre-Save Whitespace Trimming",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"   Clean Code Architecture   \",\n  \"description\": \"   Testing pre-save hook trimming   \",\n  \"priority\": \"low\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks"]
+            },
+            "description": "Tests Supplementary Problem 2: Pre-save hook automatically trims leading and trailing whitespace from title and description."
+          }
+        },
+        {
+          "name": "Supplementary 3 - Non-Existent ID (Expects 404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/507f1f77bcf86cd799439011",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "507f1f77bcf86cd799439011"]
+            },
+            "description": "Tests Supplementary Problem 3: Valid 24-character hexadecimal ObjectId that does not exist in MongoDB returns HTTP 404 JSON response."
+          }
+        },
+        {
+          "name": "CastError - Malformed ObjectId (Expects 400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/not-a-valid-object-id",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "not-a-valid-object-id"]
+            },
+            "description": "Tests Mongoose CastError handling when an invalid format is passed as the URL parameter. Returns structured JSON HTTP 400."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Practical 7: User Authentication & Authorization with JWT & Bcrypt</title>
+  <meta name="description" content="Practical 7: Task Management Application with User Registration, Bcrypt Password Hashing, JWT Authentication, Protected Routes, Input Validation, and /me endpoint.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-wrapper">
+    <!-- Header -->
+    <header class="glass-header">
+      <div class="header-content">
+        <div class="brand">
+          <div class="logo-badge">🔐</div>
+          <div>
+            <h1>Task Management System</h1>
+            <p class="subtitle">Practical 7: User Authentication & Authorization (JWT & Bcrypt)</p>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <a href="/postman_collection.json" download="Practical7_Postman_Collection.json" class="btn btn-secondary btn-sm" id="downloadPostmanBtn">
+            📥 Export Postman Collection
+          </a>
+          <div class="db-status-pill" id="dbStatusPill">
+            <span class="status-dot pulsing" id="statusDot"></span>
+            <span id="dbStatusText">Connecting DB...</span>
+          </div>
+
+          <!-- Auth User Status (Visible when logged in) -->
+          <div class="user-profile-widget hidden" id="userProfileWidget">
+            <div class="user-avatar-badge" id="userAvatarBadge">U</div>
+            <div class="user-info-text">
+              <span class="user-name" id="headerUserName">Logged User</span>
+              <span class="jwt-countdown-pill" id="jwtCountdownPill" title="JWT Token Remaining Lifespan">
+                ⏳ <span id="tokenTimer">--:--</span>
+              </span>
+            </div>
+            <button class="btn btn-primary btn-xs" id="inspectMeBtn" title="Inspect /me Endpoint">
+              🔍 /me
+            </button>
+            <button class="btn btn-danger btn-xs" id="logoutBtn" title="Supplementary Problem 3: Client Logout">
+              🚪 Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Notification Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- MAIN SECTION: Logged Out View (Auth Gateway) -->
+    <section class="auth-view" id="authView">
+      <div class="auth-hero">
+        <h2>Secure Task Management</h2>
+        <p>Enterprise-grade authentication with <strong>Bcrypt password hashing</strong>, <strong>JWT Bearer token verification (1h expiry)</strong>, and <strong>pre-database input validation</strong>.</p>
+      </div>
+
+      <div class="auth-card-wrapper">
+        <div class="card auth-card">
+          <!-- Auth Navigation Tabs -->
+          <div class="auth-tabs">
+            <button class="tab-btn active" id="tabLoginBtn" type="button">Sign In</button>
+            <button class="tab-btn" id="tabRegisterBtn" type="button">Create Account</button>
+          </div>
+
+          <!-- 1. LOGIN FORM -->
+          <form id="loginForm" class="auth-form" novalidate>
+            <div class="input-group">
+              <label for="loginEmail">Email Address <span class="required">*</span></label>
+              <input type="email" id="loginEmail" placeholder="e.g., student@university.edu" required autocomplete="email">
+            </div>
+
+            <div class="input-group">
+              <label for="loginPassword">Password <span class="required">*</span></label>
+              <div class="password-field-wrapper">
+                <input type="password" id="loginPassword" placeholder="Enter your password" required autocomplete="current-password">
+                <button type="button" class="btn-toggle-pass" data-target="loginPassword" aria-label="Toggle password visibility">👁️</button>
+              </div>
+            </div>
+
+            <div class="auth-action-row">
+              <button type="submit" class="btn btn-primary btn-block" id="loginSubmitBtn">
+                🔐 Sign In with JWT
+              </button>
+            </div>
+          </form>
+
+          <!-- 2. REGISTER FORM -->
+          <form id="registerForm" class="auth-form hidden" novalidate>
+            <div class="input-group">
+              <label for="regName">Full Name <span class="required">*</span></label>
+              <input type="text" id="regName" placeholder="e.g., Harshil Student" required autocomplete="name">
+              <span class="input-hint">Min 2 characters, trimmed.</span>
+            </div>
+
+            <div class="input-group">
+              <label for="regEmail">Email Address <span class="required">*</span></label>
+              <input type="email" id="regEmail" placeholder="e.g., harshil@example.com" required autocomplete="email">
+              <span class="input-hint">Must be a valid email format. Unique in MongoDB.</span>
+            </div>
+
+            <div class="input-group">
+              <label for="regPassword">Password <span class="required">*</span></label>
+              <div class="password-field-wrapper">
+                <input type="password" id="regPassword" placeholder="Min 6 characters" required autocomplete="new-password">
+                <button type="button" class="btn-toggle-pass" data-target="regPassword" aria-label="Toggle password visibility">👁️</button>
+              </div>
+              <span class="input-hint">Hashed with Bcrypt (10 salt rounds) before DB save.</span>
+            </div>
+
+            <div class="auth-action-row">
+              <button type="submit" class="btn btn-success btn-block" id="registerSubmitBtn">
+                ✨ Register & Generate JWT
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Practical 7 Architecture Feature Cards -->
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="feature-icon">🛡️</div>
+            <h3>Bcrypt Hashing</h3>
+            <p>Passwords are never stored in plaintext. Hashed with 10 salt rounds before saving to MongoDB.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🔑</div>
+            <h3>JWT 1-Hour Expiry</h3>
+            <p>Signed tokens encode user identity with strict 1-hour expiration and Bearer verification.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🔒</div>
+            <h3>Protected Routes</h3>
+            <p>Express middleware intercepts and validates tokens, enforcing user-isolated CRUD operations.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">⚡</div>
+            <h3>Pre-DB Validation</h3>
+            <p>Rejects malformed requests (missing title, bad formats) immediately with HTTP 400 before DB touch.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MAIN SECTION: Logged In Dashboard (Task Management) -->
+    <main class="main-grid hidden" id="dashboardView">
+      <!-- Left Column: Task Form, Validation Tester & JWT Inspector -->
+      <section class="left-col">
+        <!-- Task Form Card -->
+        <div class="card form-card">
+          <div class="card-header">
+            <h2 id="formTitle">Create New Task</h2>
+            <span class="badge badge-info" id="formModeBadge">POST /tasks [JWT Protected]</span>
+          </div>
+
+          <form id="taskForm" novalidate>
+            <input type="hidden" id="taskId">
+
+            <div class="input-group">
+              <div class="label-row">
+                <label for="taskTitle">Task Title <span class="required">*</span></label>
+                <span class="char-counter" id="titleCharCounter">0/100</span>
+              </div>
+              <input 
+                type="text" 
+                id="taskTitle" 
+                placeholder="e.g., Implement JWT Route Protection" 
+                required
+                autocomplete="off"
+              >
+              <span class="input-hint">Required (min 3, max 100 characters). Whitespace trimmed on pre-save.</span>
+            </div>
+
+            <div class="input-group">
+              <div class="label-row">
+                <label for="taskDescription">Task Description</label>
+                <span class="char-counter" id="descCharCounter">0/500</span>
+              </div>
+              <textarea 
+                id="taskDescription" 
+                rows="3" 
+                placeholder="Optional task notes, requirements, or acceptance criteria..."
+              ></textarea>
+            </div>
+
+            <div class="input-group">
+              <label>Task Priority <span class="badge badge-pill">Enum: low, medium, high</span></label>
+              <div class="priority-selector">
+                <label class="priority-option priority-low">
+                  <input type="radio" name="priority" value="low">
+                  <span class="priority-label">🟢 Low</span>
+                </label>
+                <label class="priority-option priority-medium active">
+                  <input type="radio" name="priority" value="medium" checked>
+                  <span class="priority-label">🟡 Medium</span>
+                </label>
+                <label class="priority-option priority-high">
+                  <input type="radio" name="priority" value="high">
+                  <span class="priority-label">🔴 High</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="input-group checkbox-group" id="completedGroup" style="display: none;">
+              <label class="checkbox-label">
+                <input type="checkbox" id="taskCompleted">
+                <span class="custom-checkbox"></span>
+                <span>Mark task as Completed</span>
+              </label>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="saveTaskBtn">
+                ➕ Create Task
+              </button>
+              <button type="button" class="btn btn-secondary" id="cancelEditBtn" style="display: none;">
+                Cancel Edit
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- JWT Token Inspector Card -->
+        <div class="card jwt-card">
+          <div class="card-header">
+            <h3>🔐 Active JWT Token Inspector</h3>
+            <span class="badge badge-success">Authenticated</span>
+          </div>
+          <div class="jwt-details">
+            <div class="jwt-info-row">
+              <span class="jwt-info-label">User ID:</span>
+              <code id="jwtUserId">Loading...</code>
+            </div>
+            <div class="jwt-info-row">
+              <span class="jwt-info-label">Email:</span>
+              <span id="jwtUserEmail">Loading...</span>
+            </div>
+            <div class="jwt-info-row">
+              <span class="jwt-info-label">Remaining:</span>
+              <span class="countdown-badge" id="jwtCountdownBadge">--:--</span>
+            </div>
+          </div>
+          <div class="jwt-actions">
+            <button class="btn btn-secondary btn-sm" id="btnInspectMe">
+              🔍 Inspect /me Endpoint
+            </button>
+            <button class="btn btn-warning btn-sm" id="btnSimulateExpire" title="Test 401 Expiry Interceptor">
+              ⚠️ Simulate Expired Token (401)
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Server Validation Tester Card -->
+        <div class="card tester-card">
+          <div class="card-header">
+            <h3>🧪 Server Validation Sandbox</h3>
+            <span class="badge badge-warning">Pre-DB Rejections</span>
+          </div>
+          <p class="tester-intro">Click any test case to verify HTTP 400 rejection before reaching database:</p>
+          <div class="tester-grid">
+            <button class="btn btn-test" id="testMissingTitleBtn">
+              ❌ Missing Title (400)
+            </button>
+            <button class="btn btn-test" id="testShortTitleBtn">
+              ❌ Short Title (&lt;3 chars)
+            </button>
+            <button class="btn btn-test" id="testBadPriorityBtn">
+              ❌ Invalid Priority Enum (400)
+            </button>
+            <button class="btn btn-test" id="testNoTokenBtn">
+              🚫 No Bearer Token (401)
+            </button>
+          </div>
+          <div class="tester-output hidden" id="testerOutputWrapper">
+            <div class="tester-output-header">
+              <span id="testerStatusBadge" class="badge">HTTP 400</span>
+              <span id="testerTime">0 ms</span>
+            </div>
+            <pre id="testerResponseContent"><code>{}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Task List, Stats, and Filters -->
+      <section class="right-col">
+        <!-- Stats Row -->
+        <div class="stats-row">
+          <div class="stat-card">
+            <span class="stat-number" id="statTotal">0</span>
+            <span class="stat-title">Total Tasks</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-number stat-pending" id="statPending">0</span>
+            <span class="stat-title">Active</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-number stat-done" id="statCompleted">0</span>
+            <span class="stat-title">Completed</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-number stat-high" id="statHigh">0</span>
+            <span class="stat-title">High Priority</span>
+          </div>
+        </div>
+
+        <!-- Filter & Search Toolbar Card -->
+        <div class="card filter-card">
+          <div class="filter-controls">
+            <!-- Keyword Search -->
+            <div class="search-box">
+              <span class="search-icon">🔍</span>
+              <input 
+                type="text" 
+                id="searchInput" 
+                placeholder="Search tasks by title or description..."
+                autocomplete="off"
+              >
+              <button type="button" class="clear-search-btn" id="clearSearchBtn" style="display: none;">✕</button>
+            </div>
+
+            <div class="filter-dropdowns">
+              <!-- Status Filter -->
+              <div class="select-wrapper">
+                <select id="filterCompleted" aria-label="Filter by Completion Status">
+                  <option value="">All Statuses</option>
+                  <option value="false">⏳ Active</option>
+                  <option value="true">✅ Completed</option>
+                </select>
+              </div>
+
+              <!-- Priority Filter -->
+              <div class="select-wrapper">
+                <select id="filterPriority" aria-label="Filter by Priority">
+                  <option value="">All Priorities</option>
+                  <option value="high">🔴 High</option>
+                  <option value="medium">🟡 Medium</option>
+                  <option value="low">🟢 Low</option>
+                </select>
+              </div>
+
+              <!-- Sort Order -->
+              <div class="select-wrapper">
+                <select id="filterSort" aria-label="Sort order">
+                  <option value="newest">Newest First</option>
+                  <option value="oldest">Oldest First</option>
+                </select>
+              </div>
+
+              <button class="btn btn-secondary btn-icon" id="refreshTasksBtn" title="Reload tasks">
+                🔄
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tasks List Container -->
+        <div class="tasks-container" id="tasksListContainer">
+          <!-- Dynamic Task Cards will be inserted here -->
+          <div class="loading-state" id="loadingState">
+            <div class="spinner"></div>
+            <p>Loading your authenticated tasks from MongoDB...</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- /me Endpoint Inspector Modal (Supplementary Problem 1) -->
+    <div class="modal-overlay hidden" id="meModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>👤 /me Endpoint Inspector (Decoded JWT)</h3>
+          <button class="modal-close-btn" id="closeMeModalBtn">✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-intro">
+            Endpoint <code>GET /api/auth/me</code> decoded the Bearer JWT and verified user in MongoDB:
+          </p>
+          <div class="user-details-box" id="meModalUserDetails">
+            <!-- Dynamic user data -->
+          </div>
+          <div class="token-payload-box">
+            <h4>Raw Response from Server:</h4>
+            <pre><code id="meModalJsonOutput">Loading...</code></pre>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="closeMeModalBtn2">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="glass-footer">
+      <div class="footer-content">
+        <p><strong>ITUE301 Advanced Web Development Frameworks</strong> &bull; Practical 7: JWT Authentication & Bcrypt</p>
+        <p class="student-info">Student ID: <strong>D25DIT077</strong> &bull; MongoDB Mongoose & Express Auth Stack</p>
+      </div>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+name: Full Stack CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    name: Build and Test Full-Stack Application
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Check out repository source code
+      - name: Checkout Repository Code
+        uses: actions/checkout@v4
+
+      # 2. Set up Node.js runtime environment (LTS Node 20)
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 3. Explicitly install Frontend dependencies
+      - name: Install Frontend Dependencies
+        working-directory: frontend
+        run: npm install
+
+      # 4. Execute Frontend production build
+      - name: Build Frontend Application
+        working-directory: frontend
+        run: npm run build
+
+      # 5. Execute Frontend automated tests
+      - name: Run Frontend Automated Tests
+        working-directory: frontend
+        run: npm test
+
+      # 6. Explicitly install Backend dependencies
+      - name: Install Backend Dependencies
+        working-directory: backend
+        run: npm install
+
+      # 7. Execute Backend automated tests
+      - name: Run Backend Automated Tests
+        working-directory: backend
+        run: npm test
+
+      # 8. Validate Docker Compose service definitions and networks
+      - name: Validate Docker Compose Configuration
+        run: docker compose config

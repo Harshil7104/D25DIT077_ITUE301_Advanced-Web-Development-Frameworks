@@ -1,0 +1,12 @@
+# Ignore node_modules and .env files from Docker build context
+node_modules
+**/node_modules
+.env
+**/.env
+.env.*
+**/.env.*
+dist
+dist-ssr
+.git
+.gitignore
+*.log

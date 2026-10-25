@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Practical 5: MongoDB Integration & Mongoose Schema Validation</title>
+  <meta name="description" content="Practical 5: Task Management Backend with MongoDB, Mongoose Schema Validation, Pre-Save Hooks, and Postman API Testing.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-wrapper">
+    <!-- Header -->
+    <header class="glass-header">
+      <div class="header-content">
+        <div class="brand">
+          <div class="logo-badge">🍃</div>
+          <div>
+            <h1>Task Management System</h1>
+            <p class="subtitle">Practical 5: MongoDB Integration & Schema Design with Mongoose</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <a href="/postman_collection.json" download="Practical5_Postman_Collection.json" class="btn btn-secondary btn-sm" id="downloadPostmanBtn">
+            📥 Export Postman Collection
+          </a>
+          <div class="db-status-pill" id="dbStatusPill">
+            <span class="status-dot pulsing" id="statusDot"></span>
+            <span id="dbStatusText">Connecting MongoDB...</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="main-grid">
+      <!-- Left Column: Task Form & Validation Tester -->
+      <section class="left-col">
+        <!-- Task Form Card -->
+        <div class="card form-card">
+          <div class="card-header">
+            <h2 id="formTitle">Create New Task</h2>
+            <span class="badge badge-info" id="formModeBadge">POST /tasks</span>
+          </div>
+
+          <form id="taskForm" novalidate>
+            <input type="hidden" id="taskId">
+
+            <div class="input-group">
+              <label for="taskTitle">Task Title <span class="required">*</span></label>
+              <input 
+                type="text" 
+                id="taskTitle" 
+                placeholder="e.g., Implement Mongoose Schema Validation" 
+                required
+                autocomplete="off"
+              >
+              <span class="input-hint">Required (min 3, max 100 characters). Whitespace trimmed on pre-save.</span>
+            </div>
+
+            <div class="input-group">
+              <label for="taskDescription">Description</label>
+              <textarea 
+                id="taskDescription" 
+                rows="3" 
+                placeholder="Optional details, instructions, or notes (max 500 chars)..."
+              ></textarea>
+            </div>
+
+            <div class="form-row">
+              <div class="input-group flex-1">
+                <label for="taskPriority">Priority (Supplementary 1)</label>
+                <select id="taskPriority">
+                  <option value="low">🟢 Low</option>
+                  <option value="medium" selected>🟡 Medium (Default)</option>
+                  <option value="high">🔴 High</option>
+                </select>
+              </div>
+
+              <div class="input-group flex-checkbox">
+                <label class="checkbox-label" for="taskCompleted">
+                  <input type="checkbox" id="taskCompleted">
+                  <span>Mark as Completed</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="submitBtn">
+                <span id="submitBtnText">Create Task</span>
+              </button>
+              <button type="button" class="btn btn-secondary" id="cancelBtn" style="display: none;">
+                Cancel Edit
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Schema Validation & Supplementary Tests Card -->
+        <div class="card test-suite-card">
+          <div class="card-header">
+            <h3>⚡ Live Validation & Supplementary Tests</h3>
+            <span class="badge badge-purple">Interactive</span>
+          </div>
+          <p class="test-description">Click below to test server-side schema constraints and structured error responses in real time:</p>
+          
+          <div class="test-buttons-grid">
+            <button class="test-btn" id="testMissingTitleBtn" title="Sends POST /tasks with no title">
+              <span class="test-icon">🚨</span>
+              <span class="test-name">Missing Title</span>
+              <span class="test-code">Expects 400</span>
+            </button>
+
+            <button class="test-btn" id="testInvalidPriorityBtn" title="Sends POST with priority='critical'">
+              <span class="test-icon">⚠️</span>
+              <span class="test-name">Invalid Enum</span>
+              <span class="test-code">Expects 400</span>
+            </button>
+
+            <button class="test-btn" id="testPreSaveTrimBtn" title="Sends POST with extra spaces to test pre-save hook">
+              <span class="test-icon">✂️</span>
+              <span class="test-name">Pre-Save Trim</span>
+              <span class="test-code">Expects 201</span>
+            </button>
+
+            <button class="test-btn" id="testNotFoundBtn" title="Fetches a non-existent 24-hex ObjectId">
+              <span class="test-icon">🔍</span>
+              <span class="test-name">404 Task ID</span>
+              <span class="test-code">Expects 404</span>
+            </button>
+
+            <button class="test-btn" id="testCastErrorBtn" title="Sends invalid ObjectId string">
+              <span class="test-icon">🛑</span>
+              <span class="test-name">CastError ID</span>
+              <span class="test-code">Expects 400</span>
+            </button>
+
+            <button class="test-btn" id="testHealthBtn" title="Tests API & DB Health status">
+              <span class="test-icon">🏥</span>
+              <span class="test-name">DB Health</span>
+              <span class="test-code">Expects 200</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Response Inspector -->
+        <div class="card response-card">
+          <div class="card-header">
+            <h3>📡 Live API Response Inspector</h3>
+            <span class="badge" id="responseStatusBadge">Status: Ready</span>
+          </div>
+          <div class="response-body-wrapper">
+            <pre id="responseJson"><code>// API responses and validation errors will appear here...
+// Click any test button above or perform CRUD operations.</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Task List & Filtering -->
+      <section class="right-col">
+        <!-- Controls & Filters Toolbar -->
+        <div class="card toolbar-card">
+          <div class="toolbar-content">
+            <div class="search-box">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="searchInput" placeholder="Search title or description...">
+            </div>
+
+            <div class="filter-group">
+              <label for="filterStatus">Status:</label>
+              <select id="filterStatus">
+                <option value="all">All</option>
+                <option value="pending">Pending</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label for="filterPriority">Priority:</label>
+              <select id="filterPriority">
+                <option value="all">All</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+
+            <button class="btn btn-secondary btn-icon" id="refreshBtn" title="Refresh Tasks">
+              🔄
+            </button>
+          </div>
+        </div>
+
+        <!-- Task List Container -->
+        <div class="tasks-container">
+          <div class="tasks-header">
+            <h3>Tasks Collection (<span id="taskCount">0</span>)</h3>
+            <span class="subtext">Persisted in MongoDB Database</span>
+          </div>
+
+          <div id="taskList" class="task-grid">
+            <!-- Loading State -->
+            <div class="empty-state" id="loadingState">
+              <div class="spinner"></div>
+              <p>Fetching tasks from MongoDB...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Postman Testing Guide Card -->
+    <section class="postman-guide-section">
+      <div class="card postman-card">
+        <div class="card-header">
+          <div class="postman-brand">
+            <span class="postman-icon">🚀</span>
+            <h3>Postman API Testing Guide (CRUD & Supplementary)</h3>
+          </div>
+          <a href="/postman_collection.json" download="Practical5_Postman_Collection.json" class="btn btn-accent btn-sm">
+            Download Collection JSON
+          </a>
+        </div>
+        
+        <div class="table-responsive">
+          <table class="api-table">
+            <thead>
+              <tr>
+                <th>Operation</th>
+                <th>Method</th>
+                <th>Endpoint</th>
+                <th>Sample Request Body / Query</th>
+                <th>Expected Response</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Server & DB Health</strong></td>
+                <td><span class="method-badge get">GET</span></td>
+                <td><code>/api/health</code></td>
+                <td><em>None</em></td>
+                <td><span class="status-code code-200">200 OK</span> Database state: Connected</td>
+              </tr>
+              <tr>
+                <td><strong>Create Task</strong></td>
+                <td><span class="method-badge post">POST</span></td>
+                <td><code>/tasks</code></td>
+                <td><code>{"title": "Learn Mongoose", "priority": "high"}</code></td>
+                <td><span class="status-code code-201">201 Created</span> Returns created task with <code>_id</code></td>
+              </tr>
+              <tr>
+                <td><strong>Get All Tasks</strong></td>
+                <td><span class="method-badge get">GET</span></td>
+                <td><code>/tasks</code></td>
+                <td>Optional: <code>?completed=true&priority=high</code></td>
+                <td><span class="status-code code-200">200 OK</span> Array of task objects</td>
+              </tr>
+              <tr>
+                <td><strong>Get Single Task</strong></td>
+                <td><span class="method-badge get">GET</span></td>
+                <td><code>/tasks/:id</code></td>
+                <td>Param: <code>_id</code> (24-hex ObjectId)</td>
+                <td><span class="status-code code-200">200 OK</span> Single task document</td>
+              </tr>
+              <tr>
+                <td><strong>Non-existent ID (Supp. 3)</strong></td>
+                <td><span class="method-badge get">GET</span></td>
+                <td><code>/tasks/507f1f77bcf86cd799439011</code></td>
+                <td>Param: Unmatched 24-hex ObjectId</td>
+                <td><span class="status-code code-404">404 Not Found</span> Structured JSON error</td>
+              </tr>
+              <tr>
+                <td><strong>Invalid ID (CastError)</strong></td>
+                <td><span class="method-badge get">GET</span></td>
+                <td><code>/tasks/invalid-id-123</code></td>
+                <td>Param: Malformed string</td>
+                <td><span class="status-code code-400">400 Bad Request</span> Structured CastError</td>
+              </tr>
+              <tr>
+                <td><strong>Missing Title Validation</strong></td>
+                <td><span class="method-badge post">POST</span></td>
+                <td><code>/tasks</code></td>
+                <td><code>{"description": "No title"}</code></td>
+                <td><span class="status-code code-400">400 Bad Request</span> Structured ValidationError</td>
+              </tr>
+              <tr>
+                <td><strong>Invalid Priority (Supp. 1)</strong></td>
+                <td><span class="method-badge post">POST</span></td>
+                <td><code>/tasks</code></td>
+                <td><code>{"title": "Bug", "priority": "urgent"}</code></td>
+                <td><span class="status-code code-400">400 Bad Request</span> Enum validation error</td>
+              </tr>
+              <tr>
+                <td><strong>Pre-Save Trim (Supp. 2)</strong></td>
+                <td><span class="method-badge post">POST</span></td>
+                <td><code>/tasks</code></td>
+                <td><code>{"title": "   Spaced Title   "}</code></td>
+                <td><span class="status-code code-201">201 Created</span> Whitespace automatically trimmed</td>
+              </tr>
+              <tr>
+                <td><strong>Update Task</strong></td>
+                <td><span class="method-badge put">PUT</span></td>
+                <td><code>/tasks/:id</code></td>
+                <td><code>{"completed": true, "priority": "low"}</code></td>
+                <td><span class="status-code code-200">200 OK</span> Returns updated task document</td>
+              </tr>
+              <tr>
+                <td><strong>Delete Task</strong></td>
+                <td><span class="method-badge delete">DELETE</span></td>
+                <td><code>/tasks/:id</code></td>
+                <td>Param: <code>_id</code></td>
+                <td><span class="status-code code-200">200 OK</span> Confirms deletion</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>Practical 5: MongoDB Integration & Schema Design with Mongoose | Course: ITUE301 | Student ID: D25DIT077</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

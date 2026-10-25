@@ -1,0 +1,178 @@
+{
+  "info": {
+    "_postman_id": "b3e029f0-7b21-4f11-9a74-d25dit077p10",
+    "name": "Practical 10 - Node.js EventEmitter Notification System",
+    "description": "Postman Collection for Practical 10 (Advanced Web Development Frameworks - ITUE301). Demonstrates EventEmitter background notification system, asynchronous non-blocking task creation, task-deleted events, error event listeners, and simulated slow notification handlers.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Health & EventEmitter Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5001/api/health",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5001",
+          "path": ["api", "health"]
+        },
+        "description": "Returns system health, registered EventEmitter events, and active notification metrics."
+      }
+    },
+    {
+      "name": "2. Create Task (Asynchronous - Instant Response)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Implement Real-time Event Queue\",\n  \"description\": \"Emit task-created event to background notification handler.\",\n  \"assignedUser\": \"Harshil (D25DIT077)\",\n  \"priority\": \"high\",\n  \"mode\": \"async\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5001/api/tasks",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5001",
+          "path": ["api", "tasks"]
+        },
+        "description": "Creates task and emits 'task-created' event. Main API responds immediately (<15ms) while 2000ms slow notification handler runs in background."
+      }
+    },
+    {
+      "name": "3. Create Task (Synchronous - Blocked Response Demo)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Synchronous Demonstration Task\",\n  \"description\": \"Demonstrates blocking thread execution for comparison.\",\n  \"assignedUser\": \"Harshil (D25DIT077)\",\n  \"priority\": \"medium\",\n  \"mode\": \"sync\",\n  \"delayMs\": 2000\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5001/api/tasks",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5001",
+          "path": ["api", "tasks"]
+        },
+        "description": "Emits event synchronously, blocking the API response for 2000ms. Compare response duration with Asynchronous mode."
+      }
+    },
+    {
+      "name": "4. Get All Tasks",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5001/api/tasks",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5001",
+          "path": ["api", "tasks"]
+        },
+        "description": "Fetches all tasks ordered by creation date."
+      }
+    },
+    {
+      "name": "5. Delete Task (Supplementary 1: task-deleted Event)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"deletedBy\": \"Harshil (D25DIT077)\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5001/api/tasks/:id",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5001",
+          "path": ["api", "tasks", ":id"],
+          "variable": [
+            { "key": "id", "value": "REPLACE_WITH_TASK_ID" }
+          ]
+        },
+        "description": "Deletes task and emits 'task-deleted' background notification event."
+      }
+    },
+    {
+      "name": "6. Get Background Notification Audit Telemetry",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5001/api/events/telemetry",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5001",
+          "path": ["api", "events", "telemetry"]
+        },
+        "description": "Returns full audit logs containing timestamps for API response and event handler execution point."
+      }
+    },
+    {
+      "name": "7. Simulate Error Listener (Supplementary 2: error Event)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Deliberate Fault Injection Task\",\n  \"assignedUser\": \"Harshil (D25DIT077)\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5001/api/events/test-error",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5001",
+          "path": ["api", "events", "test-error"]
+        },
+        "description": "Triggers an intentional error inside event handling to demonstrate the EventEmitter 'error' listener catching it safely."
+      }
+    },
+    {
+      "name": "8. Configure Simulated Delay (Supplementary 3: Slow Handler)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"delayMs\": 3000\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5001/api/events/delay",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5001",
+          "path": ["api", "events", "delay"]
+        },
+        "description": "Dynamically sets the simulated background notification processing delay (e.g., 2000ms, 3000ms, 5000ms)."
+      }
+    },
+    {
+      "name": "9. Sync vs Async Automated Benchmark",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5001/api/events/benchmark",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5001",
+          "path": ["api", "events", "benchmark"]
+        },
+        "description": "Runs in-engine comparison returning execution times for both synchronous and asynchronous event handling."
+      }
+    }
+  ]
+}

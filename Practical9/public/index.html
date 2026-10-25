@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Practical 9: In-Memory Caching (node-cache) - D25DIT077</title>
+  <meta name="description" content="High-performance In-Memory Caching with node-cache, selective cache invalidation, live response time benchmarking, and hit/miss monitoring for Task Management backend.">
+  
+  <!-- Modern Typography: Outfit & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Ambient background lighting effects -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+  <div class="ambient-glow glow-3"></div>
+
+  <!-- Main Container -->
+  <div class="app-container">
+
+    <!-- Top Navigation Bar -->
+    <header class="top-nav glass-panel">
+      <div class="nav-left">
+        <div class="logo-badge">
+          <span class="logo-icon">⚡</span>
+          <div class="logo-text">
+            <span class="logo-title">TaskFlow Cache Engine</span>
+            <span class="logo-subtitle">Practical 9 • In-Memory Caching with node-cache</span>
+          </div>
+        </div>
+        <span class="student-badge">ID: D25DIT077</span>
+      </div>
+
+      <div class="nav-right">
+        <div class="health-pill" id="healthPill">
+          <span class="status-dot pulsing"></span>
+          <span id="healthStatusText">Connecting...</span>
+        </div>
+        <a href="/postman_collection.json" download="Practical9_Postman_Collection.json" class="btn btn-outline btn-sm" id="downloadPostmanBtn">
+          📥 Postman Collection
+        </a>
+        <button class="btn btn-secondary btn-sm" id="btnFlushCache">
+          🗑️ Flush Cache
+        </button>
+        <button class="btn btn-primary btn-sm" id="btnRunBenchmarkTop">
+          🚀 Run Benchmark
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Grid Dashboard -->
+    <main class="dashboard-grid">
+
+      <!-- SECTION 1: Live Cache Telemetry Cards -->
+      <section class="telemetry-row">
+        <!-- Hits Card -->
+        <div class="metric-card glass-panel border-accent-emerald">
+          <div class="metric-header">
+            <span class="metric-label">Cache Hits</span>
+            <span class="metric-badge hit-badge">HIT</span>
+          </div>
+          <div class="metric-body">
+            <h2 class="metric-value text-emerald" id="statHits">0</h2>
+            <span class="metric-subtext" id="statHitTrend">Served from memory (< 1ms)</span>
+          </div>
+        </div>
+
+        <!-- Misses Card -->
+        <div class="metric-card glass-panel border-accent-amber">
+          <div class="metric-header">
+            <span class="metric-label">Cache Misses</span>
+            <span class="metric-badge miss-badge">MISS</span>
+          </div>
+          <div class="metric-body">
+            <h2 class="metric-value text-amber" id="statMisses">0</h2>
+            <span class="metric-subtext">Queried MongoDB database</span>
+          </div>
+        </div>
+
+        <!-- Hit Ratio Card -->
+        <div class="metric-card glass-panel border-accent-indigo">
+          <div class="metric-header">
+            <span class="metric-label">Hit Ratio</span>
+            <span class="metric-badge ratio-badge" id="statHitRatioBadge">0.00%</span>
+          </div>
+          <div class="metric-body">
+            <h2 class="metric-value text-indigo" id="statHitRatio">0.0%</h2>
+            <div class="progress-bar-container">
+              <div class="progress-bar-fill" id="statHitRatioBar" style="width: 0%"></div>
+            </div>
+            <span class="metric-subtext" id="statTotalRequests">0 total requests</span>
+          </div>
+        </div>
+
+        <!-- Active TTL & Keys Card -->
+        <div class="metric-card glass-panel border-accent-violet">
+          <div class="metric-header">
+            <span class="metric-label">Cache Storage & TTL</span>
+            <span class="metric-badge ttl-badge" id="statTtlBadge">60s TTL</span>
+          </div>
+          <div class="metric-body">
+            <h2 class="metric-value text-violet" id="statActiveKeys">0 <span class="unit">keys</span></h2>
+            <span class="metric-subtext" id="statMemoryUsage">stdTTL: 60s • checkperiod: 120s</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2: Response Time Benchmark & Verification Center -->
+      <section class="benchmark-section glass-panel">
+        <div class="section-header">
+          <div>
+            <h3 class="section-title">⚡ Response Time Latency Benchmark (Thunder Client / Postman)</h3>
+            <p class="section-desc">Record and compare API response times with and without in-memory caching across 3+ sample iterations.</p>
+          </div>
+          <div class="section-actions">
+            <button class="btn btn-primary" id="btnRunBenchmark">
+              <span class="btn-icon">⚡</span> Run 5-Sample Benchmark
+            </button>
+          </div>
+        </div>
+
+        <!-- Benchmark Comparison Grid -->
+        <div class="benchmark-comparison-grid">
+          <!-- Uncached Column -->
+          <div class="bench-card uncached-card">
+            <div class="bench-card-header">
+              <div class="bench-title-wrapper">
+                <span class="pill-source db-source">MongoDB (Direct)</span>
+                <h4>Uncached Latency</h4>
+              </div>
+              <span class="bench-badge-danger">Cache MISS / Bypass</span>
+            </div>
+            <div class="bench-stat-hero">
+              <span class="bench-avg-val text-amber" id="benchUncachedAvg">-- ms</span>
+              <span class="bench-avg-label">Average Server Latency</span>
+            </div>
+            <div class="sample-readings-list">
+              <span class="readings-title">Sample Readings (ms):</span>
+              <div class="reading-chips" id="benchUncachedSamples">
+                <span class="chip-placeholder">Run benchmark to collect 5 samples</span>
+              </div>
+            </div>
+            <div class="bench-footer">
+              <span>Query: <code>GET /tasks?cache=false</code></span>
+            </div>
+          </div>
+
+          <!-- Delta Speedup Badge Center -->
+          <div class="bench-delta-center">
+            <div class="delta-circle" id="benchDeltaCircle">
+              <span class="delta-icon">🚀</span>
+              <span class="delta-number" id="benchSpeedupFactor">--x</span>
+              <span class="delta-caption">Faster</span>
+            </div>
+            <span class="delta-reduction-badge" id="benchLatencyReduction">--% Latency Drop</span>
+          </div>
+
+          <!-- Cached Column -->
+          <div class="bench-card cached-card">
+            <div class="bench-card-header">
+              <div class="bench-title-wrapper">
+                <span class="pill-source cache-source">node-cache</span>
+                <h4>In-Memory Cached Latency</h4>
+              </div>
+              <span class="bench-badge-success">Cache HIT (60s TTL)</span>
+            </div>
+            <div class="bench-stat-hero">
+              <span class="bench-avg-val text-emerald" id="benchCachedAvg">-- ms</span>
+              <span class="bench-avg-label">Average In-Memory Latency</span>
+            </div>
+            <div class="sample-readings-list">
+              <span class="readings-title">Sample Readings (ms):</span>
+              <div class="reading-chips" id="benchCachedSamples">
+                <span class="chip-placeholder">Run benchmark to collect 5 samples</span>
+              </div>
+            </div>
+            <div class="bench-footer">
+              <span>Query: <code>GET /tasks</code> (Memory Hit)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Real-Time Benchmark Visualizer Bar -->
+        <div class="benchmark-bar-comparison" id="benchVisualizerContainer" style="display: none;">
+          <div class="visualizer-row">
+            <span class="vis-label">Uncached (MongoDB):</span>
+            <div class="vis-track">
+              <div class="vis-fill uncached-fill" id="visUncachedBar" style="width: 100%"></div>
+            </div>
+            <span class="vis-time" id="visUncachedTime">0 ms</span>
+          </div>
+          <div class="visualizer-row">
+            <span class="vis-label">Cached (Memory):</span>
+            <div class="vis-track">
+              <div class="vis-fill cached-fill" id="visCachedBar" style="width: 20%"></div>
+            </div>
+            <span class="vis-time text-emerald" id="visCachedTime">0 ms</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 3: Two-Column Control & Invalidation Playground -->
+      <div class="split-row">
+
+        <!-- Column A: Active Cache Keys & Dynamic TTL Experimenter -->
+        <div class="column-left flex-col gap-md">
+
+          <!-- Dynamic TTL Experimenter (Supplementary Problem 3) -->
+          <div class="glass-panel p-md">
+            <div class="panel-header-compact">
+              <div>
+                <h4 class="card-title">🧪 Dynamic TTL Experimenter</h4>
+                <p class="card-subtitle">Supplementary 3: Experiment with TTL values and analyze staleness vs performance.</p>
+              </div>
+              <span class="current-ttl-badge" id="activeTtlDisplay">Active: 60s</span>
+            </div>
+
+            <div class="ttl-presets-grid">
+              <button class="btn-ttl-preset" data-ttl="5" id="btnTtl5">
+                <span class="ttl-sec">5s</span>
+                <span class="ttl-desc">Ultra-Short • High Freshness</span>
+              </button>
+              <button class="btn-ttl-preset" data-ttl="30" id="btnTtl30">
+                <span class="ttl-sec">30s</span>
+                <span class="ttl-desc">Short • Active Collaboration</span>
+              </button>
+              <button class="btn-ttl-preset active" data-ttl="60" id="btnTtl60">
+                <span class="ttl-sec">60s</span>
+                <span class="ttl-desc">Standard • Recommended</span>
+              </button>
+              <button class="btn-ttl-preset" data-ttl="300" id="btnTtl300">
+                <span class="ttl-sec">300s</span>
+                <span class="ttl-desc">5 Min • Max DB Offload</span>
+              </button>
+            </div>
+
+            <!-- Custom TTL Input Form -->
+            <form class="custom-ttl-form" id="customTtlForm">
+              <div class="input-inline-group">
+                <label for="customTtlInput">Custom TTL (seconds):</label>
+                <input type="number" id="customTtlInput" min="1" max="86400" placeholder="e.g. 45" required>
+                <button type="submit" class="btn btn-outline btn-sm">Set TTL</button>
+              </div>
+            </form>
+
+            <div class="ttl-analysis-box" id="ttlAnalysisBox">
+              <strong>💡 Current TTL Analysis (60s):</strong>
+              <p>Balanced sweet spot for general Task Management. Eliminates ~90%+ of redundant database queries while active write-invalidation on POST, PUT, and DELETE guarantees zero data staleness.</p>
+            </div>
+          </div>
+
+          <!-- Active Cached Keys Inspector -->
+          <div class="glass-panel p-md">
+            <div class="panel-header-compact">
+              <div>
+                <h4 class="card-title">🔑 Active In-Memory Keys</h4>
+                <p class="card-subtitle">Real-time inspection of keys currently stored in node-cache.</p>
+              </div>
+              <button class="btn btn-sm btn-ghost" id="btnRefreshKeys" title="Refresh Keys">🔄 Refresh</button>
+            </div>
+
+            <div class="keys-table-container">
+              <table class="keys-table" id="keysTable">
+                <thead>
+                  <tr>
+                    <th>Cache Key</th>
+                    <th>Category</th>
+                    <th>Remaining TTL</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="keysTableBody">
+                  <tr>
+                    <td colspan="4" class="empty-state">No active keys in cache. Fetch tasks to populate.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Live Event Log -->
+          <div class="glass-panel p-md">
+            <div class="panel-header-compact">
+              <h4 class="card-title">📜 Real-Time Cache Event Stream</h4>
+              <button class="btn btn-sm btn-ghost" id="btnClearLogs">Clear Log</button>
+            </div>
+            <div class="events-log-container" id="eventsLogContainer">
+              <div class="event-row event-info">
+                <span class="event-time">--:--:--</span>
+                <span class="event-tag tag-ready">READY</span>
+                <span class="event-msg">Cache listening for requests...</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Column B: Task Management Console with Instant Invalidation -->
+        <div class="column-right flex-col gap-md">
+
+          <div class="glass-panel p-md">
+            <div class="panel-header-compact">
+              <div>
+                <h4 class="card-title">📝 Task Management & Invalidation Tester</h4>
+                <p class="card-subtitle">Writes (POST, PUT, DELETE) immediately invalidate cache so stale data is never served.</p>
+              </div>
+              <div class="flex-row gap-xs">
+                <button class="btn btn-outline btn-sm" id="btnTestFetchMiss" title="Force Cache Miss (Direct DB)">
+                  🔄 Fetch DB (Bypass)
+                </button>
+                <button class="btn btn-secondary btn-sm" id="btnTestFetchCached" title="Fetch via Cache">
+                  ⚡ Fetch Tasks
+                </button>
+              </div>
+            </div>
+
+            <!-- Invalidation Notice Banner -->
+            <div class="invalidation-banner" id="invalidationBanner" style="display: none;">
+              <span class="invalidation-icon">⚡</span>
+              <div class="invalidation-content">
+                <strong>Cache Invalidated!</strong>
+                <span id="invalidationBannerText">Key 'tasks:all*' cleared. Stale data prevented.</span>
+              </div>
+            </div>
+
+            <!-- Create Task Form -->
+            <form class="task-create-form" id="createTaskForm">
+              <div class="form-grid">
+                <div class="form-group flex-2">
+                  <label for="taskTitleInput">Task Title *</label>
+                  <input type="text" id="taskTitleInput" placeholder="Enter task title (min 3 chars)..." required minlength="3" maxlength="100">
+                </div>
+                <div class="form-group flex-1">
+                  <label for="taskPriorityInput">Priority</label>
+                  <select id="taskPriorityInput">
+                    <option value="low">Low</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group mt-sm">
+                <label for="taskDescInput">Description (Optional)</label>
+                <input type="text" id="taskDescInput" placeholder="Brief description of task..." maxlength="500">
+              </div>
+
+              <div class="form-actions mt-sm">
+                <span class="form-hint">💡 Creating a task triggers automatic <code>invalidateAllTasks()</code></span>
+                <button type="submit" class="btn btn-primary" id="btnCreateTask">
+                  ➕ Add Task (Invalidate Cache)
+                </button>
+              </div>
+            </form>
+
+            <!-- Task List Filter Bar -->
+            <div class="task-filter-bar mt-md">
+              <div class="filter-pills" id="taskFilterPills">
+                <button class="filter-pill active" data-filter="all">All (<span id="countAll">0</span>)</button>
+                <button class="filter-pill" data-filter="pending">Pending (<span id="countPending">0</span>)</button>
+                <button class="filter-pill" data-filter="completed">Completed (<span id="countCompleted">0</span>)</button>
+                <button class="filter-pill" data-filter="high">High Priority (<span id="countHigh">0</span>)</button>
+              </div>
+
+              <div class="search-box">
+                <input type="text" id="taskSearchInput" placeholder="🔍 Search tasks...">
+              </div>
+            </div>
+
+            <!-- Tasks Container -->
+            <div class="tasks-list-container mt-sm" id="tasksListContainer">
+              <div class="empty-state">Loading tasks...</div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div class="footer-content">
+        <span>Practical 9: In-Memory Caching Backend using <code>node-cache</code></span>
+        <span>Student: <strong>D25DIT077</strong> • Course: <strong>ITUE301 Advanced Web Development Frameworks</strong></span>
+        <span>CHARUSAT • Department of Information Technology</span>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
